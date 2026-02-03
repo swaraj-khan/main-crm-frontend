@@ -313,7 +313,7 @@ const ApplicationLevelFlow = () => {
         applicationId: modifiedApplication._id,
         callDisposition: modifiedApplication.tempDisposition,
         notes: modifiedApplication.tempNotes,
-        nextCallDate: modifiedApplication.tempNextCallDate,
+        nextCallDate: modifiedApplication.tempNextCallDate || null,
         fullName: modifiedApplication.fullName,
         targetCountry: modifiedApplication.targetCountry,
         targetJobRole: modifiedApplication.targetJobRole,
