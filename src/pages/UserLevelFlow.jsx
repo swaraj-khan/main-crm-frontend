@@ -614,11 +614,7 @@ const UserLevelFlow = () => {
                 {user.skills && user.skills.length > 0 ? (
                   user.skills.join(', ')
                 ) : (
-                  <input 
-                    className="border rounded p-1 w-full text-xs" 
-                    placeholder="Add Skills (comma sep)" 
-                    onBlur={(e) => handleInlineUpdate(user._id, 'skills', e.target.value)}
-                  />
+                  <span className="text-gray-400 text-xs italic">No Skills</span>
                 )}
               </td>
 
@@ -627,11 +623,7 @@ const UserLevelFlow = () => {
                 {user.language && (user.language.motherTongue || (user.language.other && user.language.other.length > 0)) ? (
                   <span>{user.language.motherTongue} | {user.language.other?.join(', ')}</span>
                 ) : (
-                  <input 
-                    className="border rounded p-1 w-full text-xs" 
-                    placeholder="Mother | Other1, Other2" 
-                    onBlur={(e) => handleInlineUpdate(user._id, 'language', e.target.value)}
-                  />
+                  <span className="text-gray-400 text-xs italic">No Languages</span>
                 )}
               </td>
 
@@ -670,11 +662,7 @@ const UserLevelFlow = () => {
                 {user.dob ? (
                   formatDate(user.dob)
                 ) : (
-                  <input 
-                    type="date"
-                    className="border rounded p-1 w-full text-xs" 
-                    onBlur={(e) => handleInlineUpdate(user._id, 'dob', e.target.value)}
-                  />
+                  <span className="text-gray-400 text-xs italic">No DOB</span>
                 )}
               </td>
 
@@ -683,16 +671,7 @@ const UserLevelFlow = () => {
                 {user.gender ? (
                   user.gender
                 ) : (
-                  <select 
-                    className="border rounded p-1 w-full text-xs"
-                    onChange={(e) => handleInlineUpdate(user._id, 'gender', e.target.value)}
-                    defaultValue=""
-                  >
-                    <option value="" disabled>M|F</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
+                  <span className="text-gray-400 text-xs italic">No Gender</span>
                 )}
               </td>
 
@@ -701,11 +680,7 @@ const UserLevelFlow = () => {
                 {user.location && (user.location.city || user.location.country) ? (
                   <span>{user.location.city}, {user.location.state}, {user.location.country}</span>
                 ) : (
-                  <input 
-                    className="border rounded p-1 w-full text-xs" 
-                    placeholder="City, State, Country" 
-                    onBlur={(e) => handleInlineUpdate(user._id, 'location', e.target.value)}
-                  />
+                  <span className="text-gray-400 text-xs italic">No Location</span>
                 )}
               </td>
 
