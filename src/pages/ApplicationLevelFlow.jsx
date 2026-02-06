@@ -20,40 +20,40 @@ const DISPOSITION_OPTIONS = [
   "TRAVEL_SCHEDULED", "CANDIDATE_DEPLOYED", "DEPLOYMENT_DELAYED",
 ];
 
-const UserDetailsPopup = ({ userId }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+const UserDetailsPopup = ({ userId, baseData }) => {
+  const [user, setUser] = useState(baseData);
+  const [loading, setLoading] = useState(!baseData);
+
+  useEffect(() => {
+    if (baseData) setUser(baseData);
+  }, [baseData]);
 
   useEffect(() => {
     const fetchUser = async () => {
       if (!userId) return;
-      setLoading(true);
+      if (!baseData) setLoading(true);
       try {
-        let foundUser = null;
-        let page = 1;
-        let hasMore = true;
-        const limit = 500; // Fetch in chunks to avoid timeouts but cover DB dynamically
+        const [profileRes, crmRes] = await Promise.all([
+          supabase.from('user_profiles').select('*').eq('user_id', userId).maybeSingle(),
+          supabase.from('userflow_crm').select('*').eq('user_id', userId).maybeSingle()
+        ]);
 
-        while (hasMore && !foundUser) {
-          const response = await axios.get('/api/crm/user-level', { params: { page, limit } });
-          const users = response.data.data || [];
-          const total = response.data.total || 0;
+        const sbProfile = profileRes.data;
+        const sbCrm = crmRes.data;
 
-          foundUser = users.find(u => {
-            const uId = (u._id && typeof u._id === 'object' && u._id.$oid) ? u._id.$oid : u._id;
-            return uId === userId;
-          });
-
-          if (foundUser || users.length < limit || (page * limit) >= total) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        }
-        setUser(foundUser || null);
+        setUser(prev => ({
+          ...(prev || {}),
+          skills: sbProfile?.skills || prev?.skills,
+          language: sbProfile?.language || prev?.language,
+          education: sbProfile?.education || prev?.education,
+          experience: sbProfile?.experience || prev?.experience,
+          dob: sbProfile?.dob || prev?.dob,
+          gender: sbProfile?.gender || prev?.gender,
+          location: sbProfile?.location || prev?.location,
+          fullName: sbCrm?.full_name || prev?.fullName,
+        }));
       } catch (error) {
         console.error(`Error fetching user details for ID ${userId}:`, error);
-        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -458,7 +458,7 @@ const ApplicationLevelFlow = () => {
     <>
       {isModalOpen && (
         <>
-          <UserDetailsPopup userId={selectedAppForModify?.userId} />
+          <UserDetailsPopup userId={selectedAppForModify?.userId} baseData={selectedAppForModify} />
           <ModifyModal record={selectedAppForModify} type="application" onClose={() => setIsModalOpen(false)} onSave={handleSaveFromModal}/>
         </>
       )}
