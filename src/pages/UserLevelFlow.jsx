@@ -37,6 +37,8 @@ const UserLevelFlow = () => {
   const [filterJobRole, setFilterJobRole] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [filterMissingDetails, setFilterMissingDetails] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -63,7 +65,7 @@ const UserLevelFlow = () => {
     fetchData();
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, [currentPage, debouncedUserInfo, filterApplied, filterCountry, filterJobRole, filterAssignee, filterMissingDetails]);
+  }, [currentPage, debouncedUserInfo, filterApplied, filterCountry, filterJobRole, filterAssignee, filterMissingDetails, filterStartDate, filterEndDate]);
 
   useEffect(() => {
     const getUser = async () => {
@@ -92,7 +94,7 @@ const UserLevelFlow = () => {
       let responseData = [];
       let total = 0;
 
-      if (debouncedUserInfo) {
+      if (debouncedUserInfo || filterStartDate || filterEndDate) {
         // Client-side search: Fetch all pages then filter
         let allUsers = [];
         const limit = 200;
@@ -104,6 +106,8 @@ const UserLevelFlow = () => {
           jobRole: filterJobRole,
           assignee: filterAssignee,
           missingDetails: filterMissingDetails,
+          startDate: filterStartDate,
+          endDate: filterEndDate,
         };
 
         // Fetch first page to get total count
@@ -128,11 +132,25 @@ const UserLevelFlow = () => {
         }
 
         const lowerTerm = debouncedUserInfo.toLowerCase();
-        responseData = allUsers.filter(u => 
-          (u.fullName && u.fullName.toLowerCase().includes(lowerTerm)) ||
-          (u.phoneNumber && u.phoneNumber.includes(lowerTerm)) ||
-          (u._id && u._id.toString().includes(lowerTerm))
-        );
+        responseData = allUsers.filter(u => {
+          const matchesSearch = !debouncedUserInfo || (
+            (u.fullName && u.fullName.toLowerCase().includes(lowerTerm)) ||
+            (u.phoneNumber && u.phoneNumber.includes(lowerTerm)) ||
+            (u._id && u._id.toString().includes(lowerTerm))
+          );
+
+          let matchesDate = true;
+          const d = u.createdAt ? (u.createdAt.$date || u.createdAt) : null;
+          if (filterStartDate && d) {
+            matchesDate = matchesDate && new Date(d) >= new Date(filterStartDate);
+          }
+          if (filterEndDate && d) {
+            const end = new Date(filterEndDate);
+            end.setHours(23, 59, 59, 999);
+            matchesDate = matchesDate && new Date(d) <= end;
+          }
+          return matchesSearch && matchesDate;
+        });
         total = responseData.length;
       } else {
         const params = {
@@ -143,6 +161,8 @@ const UserLevelFlow = () => {
           jobRole: filterJobRole,
           assignee: filterAssignee,
           missingDetails: filterMissingDetails,
+          startDate: filterStartDate,
+          endDate: filterEndDate,
         };
         const response = await axios.get(`${API_URL}/crm/user-level`, { params });
         responseData = response.data.data;
@@ -373,6 +393,8 @@ const UserLevelFlow = () => {
         jobRole: filterJobRole,
         assignee: filterAssignee,
         missingDetails: filterMissingDetails,
+        startDate: filterStartDate,
+        endDate: filterEndDate,
       };
 
       // Fetch first page to get total count
@@ -412,6 +434,23 @@ const UserLevelFlow = () => {
       }
 
       let filteredData = allData;
+
+      // Client-side date filtering for CSV
+      if (filterStartDate) {
+        const start = new Date(filterStartDate);
+        filteredData = filteredData.filter(u => {
+          const d = u.createdAt ? (u.createdAt.$date || u.createdAt) : null;
+          return d && new Date(d) >= start;
+        });
+      }
+      if (filterEndDate) {
+        const end = new Date(filterEndDate);
+        end.setHours(23, 59, 59, 999);
+        filteredData = filteredData.filter(u => {
+          const d = u.createdAt ? (u.createdAt.$date || u.createdAt) : null;
+          return d && new Date(d) <= end;
+        });
+      }
 
       if (debouncedUserInfo) {
         const lowerTerm = debouncedUserInfo.toLowerCase();
@@ -565,6 +604,24 @@ const UserLevelFlow = () => {
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
+
+          <div className="flex items-center gap-2">
+            <input 
+              type="date" 
+              className="border p-2 rounded" 
+              value={filterStartDate} 
+              onChange={(e) => setFilterStartDate(e.target.value)} 
+              title="Start Date"
+            />
+            <span className="text-gray-500">-</span>
+            <input 
+              type="date" 
+              className="border p-2 rounded" 
+              value={filterEndDate} 
+              onChange={(e) => setFilterEndDate(e.target.value)} 
+              title="End Date"
+            />
+          </div>
 
           <button onClick={downloadCSV} disabled={isDownloading} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:bg-gray-400">
             {isDownloading ? 'Downloading...' : 'Download CSV'}

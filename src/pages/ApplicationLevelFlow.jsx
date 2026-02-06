@@ -117,6 +117,8 @@ const ApplicationLevelFlow = () => {
   const [filterJobRole, setFilterJobRole] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [filterMissingDetails, setFilterMissingDetails] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAppForModify, setSelectedAppForModify] = useState(null);
   const [downloadType, setDownloadType] = useState('all');
@@ -131,7 +133,7 @@ const ApplicationLevelFlow = () => {
     fetchData();
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, [currentPage, filterUserInfo, filterCountry, filterJobRole, filterDisposition, filterAssignee, filterMissingDetails]);
+  }, [currentPage, filterUserInfo, filterCountry, filterJobRole, filterDisposition, filterAssignee, filterMissingDetails, filterStartDate, filterEndDate]);
 
   useEffect(() => {
     const getUser = async () => {
@@ -166,6 +168,8 @@ const ApplicationLevelFlow = () => {
         disposition: filterDisposition,
         assignee: filterAssignee,
         missingDetails: filterMissingDetails,
+        startDate: filterStartDate,
+        endDate: filterEndDate,
       };
       const response = await axios.get('/api/crm/application-level', { params });
       const { data: responseData, total } = response.data;
@@ -247,6 +251,24 @@ const ApplicationLevelFlow = () => {
       });
 
       let filteredData = initializedData;
+
+      // Client-side date filtering
+      if (filterStartDate) {
+        const start = new Date(filterStartDate);
+        filteredData = filteredData.filter(u => {
+          const d = u.createdAt ? (u.createdAt.$date || u.createdAt) : null;
+          return d && new Date(d) >= start;
+        });
+      }
+      if (filterEndDate) {
+        const end = new Date(filterEndDate);
+        end.setHours(23, 59, 59, 999);
+        filteredData = filteredData.filter(u => {
+          const d = u.createdAt ? (u.createdAt.$date || u.createdAt) : null;
+          return d && new Date(d) <= end;
+        });
+      }
+
       if (filterMissingDetails === 'Yes') {
         filteredData = filteredData.filter(u => !u.fullName || !u.targetCountry || !u.targetJobRole);
       } else if (filterMissingDetails === 'No') {
@@ -364,6 +386,8 @@ const ApplicationLevelFlow = () => {
         disposition: filterDisposition,
         assignee: filterAssignee,
         missingDetails: filterMissingDetails,
+        startDate: filterStartDate,
+        endDate: filterEndDate,
       };
 
       // Fetch first page to get total count
@@ -403,6 +427,24 @@ const ApplicationLevelFlow = () => {
       }
 
       let filteredData = allData;
+
+      // Client-side date filtering for CSV
+      if (filterStartDate) {
+        const start = new Date(filterStartDate);
+        filteredData = filteredData.filter(u => {
+          const d = u.createdAt ? (u.createdAt.$date || u.createdAt) : null;
+          return d && new Date(d) >= start;
+        });
+      }
+      if (filterEndDate) {
+        const end = new Date(filterEndDate);
+        end.setHours(23, 59, 59, 999);
+        filteredData = filteredData.filter(u => {
+          const d = u.createdAt ? (u.createdAt.$date || u.createdAt) : null;
+          return d && new Date(d) <= end;
+        });
+      }
+
       if (filterMissingDetails === 'Yes') {
         filteredData = filteredData.filter(u => !u.targetCountry || !u.targetJobRole);
       } else if (filterMissingDetails === 'No') {
@@ -540,6 +582,24 @@ const ApplicationLevelFlow = () => {
             <option value="Yes">Yes</option>
             <option value="No">No</option>
           </select>
+
+          <div className="flex items-center gap-2">
+            <input 
+              type="date" 
+              className="border p-2 rounded" 
+              value={filterStartDate} 
+              onChange={(e) => setFilterStartDate(e.target.value)} 
+              title="Start Date"
+            />
+            <span className="text-gray-500">-</span>
+            <input 
+              type="date" 
+              className="border p-2 rounded" 
+              value={filterEndDate} 
+              onChange={(e) => setFilterEndDate(e.target.value)} 
+              title="End Date"
+            />
+          </div>
 
           <div className="flex border rounded overflow-hidden">
             <select className="p-2 bg-gray-50 border-r" value={downloadType} onChange={(e) => setDownloadType(e.target.value)}>
