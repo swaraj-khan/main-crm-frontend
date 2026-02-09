@@ -49,7 +49,6 @@ const UserLevelFlow = () => {
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
-    // Debugging log for Production
     console.log(`[UserLevelFlow] Loaded. Version: ${APP_VERSION}`);
   }, []);
 
@@ -95,7 +94,6 @@ const UserLevelFlow = () => {
       let total = 0;
 
       if (debouncedUserInfo || filterStartDate || filterEndDate) {
-        // Client-side search: Fetch all pages then filter
         let allUsers = [];
         const limit = 200;
 
@@ -110,7 +108,6 @@ const UserLevelFlow = () => {
           endDate: filterEndDate,
         };
 
-        // Fetch first page to get total count
         const response = await axios.get(`${API_URL}/crm/user-level`, { params: { ...params, page: 1 } });
         const { data: firstPageData, total: totalCount } = response.data;
         allUsers = [...firstPageData];
@@ -240,11 +237,9 @@ const UserLevelFlow = () => {
     if (!currentUser?.email) return;
     const assignee = currentUser.email;
 
-    // Update local state immediately
     setData(prev => prev.map(u => u._id === user._id ? { ...u, assignee } : u));
 
     try {
-      // Sync with Supabase for Dashboard
       await supabase.from('user_assignments').upsert({ user_id: user._id, assigned_to: assignee });
     } catch (error) {
       console.error("Error assigning user", error);
@@ -269,14 +264,10 @@ const UserLevelFlow = () => {
         payload = { location: { city: city?.trim(), state: state?.trim(), country: country?.trim() } };
       }
 
-      // Optimistic update
       setData(prev => prev.map(u => u._id === userId ? { ...u, ...payload } : u));
       
-      // Sync to Supabase (user_profiles)
       const sbPayload = { user_id: userId, updated_at: new Date().toISOString(), ...payload };
-      // Map camelCase to snake_case for specific fields if necessary, but here payload keys match what we want except exp
-      // Note: payload keys are 'skills', 'language', 'dob', 'gender', 'location', 'education', 'experience'
-      // These match the SQL columns defined above.
+
       await supabase.from('user_profiles').upsert(sbPayload);
     } catch (error) {
       console.error("Update failed", error);
@@ -286,20 +277,16 @@ const UserLevelFlow = () => {
   };
 
   const handleSaveFromModal = async (modifiedUser) => {
-    // Optimistic UI Update
     setData(prev => prev.map(u => {
       if (u._id === modifiedUser._id) {
         return {
           ...u,
-          // Update fields from the modal
           tempDisposition: modifiedUser.tempDisposition,
           tempNotes: modifiedUser.tempNotes,
           tempNextCallDate: modifiedUser.tempNextCallDate,
-          // Also update the main display fields if they were changed
           fullName: modifiedUser.fullName,
           targetCountry: modifiedUser.targetCountry.name || u.targetCountry,
           targetJobRole: modifiedUser.targetJobRole.name || u.targetJobRole,
-          // Update profile fields
           skills: modifiedUser.skills,
           language: modifiedUser.language,
           education: modifiedUser.education,
@@ -315,11 +302,9 @@ const UserLevelFlow = () => {
     }));
 
     try {
-      // 1. Save Profile Data to user_profiles
       const sbProfilePayload = {
         user_id: modifiedUser._id,
         
-        // Profile Fields
         skills: modifiedUser.skills,
         language: modifiedUser.language,
         education: modifiedUser.education,
@@ -335,7 +320,6 @@ const UserLevelFlow = () => {
       const { error: profileError } = await supabase.from('user_profiles').upsert(sbProfilePayload);
       if (profileError) throw profileError;
 
-      // 2. Save CRM Data to userflow_crm
       const crmPayload = {
         user_id: modifiedUser._id,
         call_disposition: modifiedUser.tempDisposition,
@@ -360,13 +344,11 @@ const UserLevelFlow = () => {
       
       alert('Saved successfully to Supabase');
       
-      // Refetch to ensure we see the merged data
       setTimeout(() => fetchData(), 500);
 
     } catch (error) {
       console.error("Error saving data to Supabase", error);
       alert('Error saving data');
-      // On error, refetch to revert the optimistic UI update
       fetchData();
     }
   };
@@ -397,7 +379,6 @@ const UserLevelFlow = () => {
         endDate: filterEndDate,
       };
 
-      // Fetch first page to get total count
       const response = await axios.get(`${API_URL}/crm/user-level`, { params });
       const { data: firstPageData, total } = response.data;
 
@@ -435,7 +416,6 @@ const UserLevelFlow = () => {
 
       let filteredData = allData;
 
-      // Client-side date filtering for CSV
       if (filterStartDate) {
         const start = new Date(filterStartDate);
         filteredData = filteredData.filter(u => {

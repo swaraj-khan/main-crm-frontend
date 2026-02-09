@@ -14,7 +14,6 @@ export const fetchDashboardPreferences = async (userId: string): Promise<Dashboa
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // No preferences found, return default
         return { selectedCards: [] };
       }
       console.error("Failed to fetch dashboard preferences", error);

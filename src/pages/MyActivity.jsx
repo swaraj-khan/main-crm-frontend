@@ -24,18 +24,16 @@ const MyActivity = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
-  const [modalType, setModalType] = useState(null); // 'user' or 'application'
+  const [modalType, setModalType] = useState(null); 
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // --- User Level State ----
   const [userData, setUserData] = useState([]);
   const [userLoading, setUserLoading] = useState(false);
   const [userFilters, setUserFilters] = useState({ applied: '', country: '', jobRole: '' });
   const [userPage, setUserPage] = useState(1);
   const [userTotal, setUserTotal] = useState(0);
 
-  // --- App Level State ---
   const [appData, setAppData] = useState([]);
   const [appLoading, setAppLoading] = useState(false);
   const [appFilters, setAppFilters] = useState({ userInfo: '', country: '', jobRole: '', disposition: '' });
@@ -50,7 +48,6 @@ const MyActivity = () => {
     getUser();
   }, []);
 
-  // Fetch User Level Data
   useEffect(() => {
     if (currentUser?.email) {
       fetchUserData();
@@ -59,7 +56,6 @@ const MyActivity = () => {
     }
   }, [currentUser, userPage, userFilters]);
 
-  // Fetch Application Level Data
   useEffect(() => {
     if (currentUser?.email) {
       fetchAppData();
@@ -77,7 +73,7 @@ const MyActivity = () => {
         applied: userFilters.applied,
         country: userFilters.country,
         jobRole: userFilters.jobRole,
-        assignee: currentUser.email, // Hardcoded to current user
+        assignee: currentUser.email,
       };
       const response = await axios.get('/api/crm/user-level', { params });
       const { data: responseData, total } = response.data;
@@ -108,7 +104,7 @@ const MyActivity = () => {
         country: appFilters.country,
         jobRole: appFilters.jobRole,
         disposition: appFilters.disposition,
-        assignee: currentUser.email, // Hardcoded to current user
+        assignee: currentUser.email, 
       };
       const response = await axios.get('/api/crm/application-level', { params });
       const { data: responseData, total } = response.data;
@@ -130,7 +126,6 @@ const MyActivity = () => {
   };
 
   const handleUserSave = async (modifiedUser) => {
-    // Optimistic Update
     setUserData(prev => prev.map(u => u._id === modifiedUser._id ? {
       ...u,
       tempDisposition: modifiedUser.tempDisposition,
@@ -161,7 +156,6 @@ const MyActivity = () => {
   };
 
   const handleAppSave = async (modifiedApp) => {
-    // Optimistic Update
     setAppData(prev => prev.map(u => u._id === modifiedApp._id ? {
       ...u,
       tempDisposition: modifiedApp.tempDisposition,

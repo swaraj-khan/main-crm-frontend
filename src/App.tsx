@@ -3,8 +3,6 @@ import './index.css';
 import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Login from './pages/Login';
-
-// Import actual CRM components
 // @ts-ignore
 import UserLevel from './pages/UserLevelFlow.jsx';
 // @ts-ignore
@@ -15,23 +13,16 @@ import MyActivity from './pages/MyActivity.jsx';
 import { Dashboard } from './pages/Dashboard';
 // @ts-ignore
 import { MyDashboard } from './pages/MyDashboard';
-
-// Dashboard and MyDashboard are imported directly as named exports
-
-// Safe AuthProvider wrapper that renders children even if AuthProvider is missing/undefined
 const SafeAuthProvider = ({ children }: { children: any }) => <>{children}</>;
 
-// Set the global base URL for axios to point to your backend
 axios.defaults.baseURL = 'https://main-crm-backend.onrender.com';
 // axios.defaults.baseURL = 'http://localhost:4000';
 
-// Protected Route Component
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
-// Error Boundary to catch crashes (like missing Contexts)
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
   constructor(props: any) {
     super(props);
@@ -55,7 +46,6 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
-// Layout component to provide consistent Navigation across all pages
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const handleLogout = () => {

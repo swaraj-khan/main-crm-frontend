@@ -2,9 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 
-// Placeholder for your actual Dashboard component
-// TODO: Import your existing Dashboard component here. 
-// Example: import Dashboard from './pages/Dashboard';
+
 const Dashboard = () => {
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>

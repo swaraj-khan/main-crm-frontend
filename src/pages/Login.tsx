@@ -19,7 +19,6 @@ const Login = () => {
     
     try {
       if (isSignUp) {
-        // Domain restriction check
         if (!email.endsWith("@kovon.io")) {
           throw new Error("Registration is restricted to @kovon.io email addresses only.");
         }
@@ -31,7 +30,6 @@ const Login = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
-        // Maintain existing app logic
         localStorage.setItem('isAuthenticated', 'true');
         navigate('/');
       }

@@ -18,26 +18,21 @@ export const generateResume = async (userId: string): Promise<Blob> => {
     return blob;
 };
 
-
 export const uploadResumeToSupabase = async (userId: string, resumeBlob: Blob): Promise<string> => {
     const fileName = `resume_${userId}_${Date.now()}.pdf`;
     const filePath = `resumes/${fileName}`;
-
     const { data, error: uploadError } = await supabase.storage
         .from('resumes')
         .upload(filePath, resumeBlob, {
             contentType: 'application/pdf',
             upsert: true,
         });
-
     if (uploadError) {
         throw new Error(`Failed to upload resume to storage: ${uploadError.message}`);
     }
-
     const { data: { publicUrl } } = supabase.storage
         .from('resumes')
         .getPublicUrl(filePath);
-
     try {
         const { data: insertData, error: insertError } = await supabase
             .from('resumes')
@@ -46,7 +41,6 @@ export const uploadResumeToSupabase = async (userId: string, resumeBlob: Blob): 
                 file_url: publicUrl,
                 file_size: resumeBlob.size,
             });
-
         if (insertError?.code === 'PGRST116' || insertError?.message?.includes('duplicate')) {
             const { error: updateError } = await supabase
                 .from('resumes')
@@ -74,15 +68,12 @@ export const uploadResumeToSupabase = async (userId: string, resumeBlob: Blob): 
 export const generateAndUploadResume = async (userId: string): Promise<string> => {
     try {
         const resumeBlob = await generateResume(userId);
-
         const publicUrl = await uploadResumeToSupabase(userId, resumeBlob);
-
         return publicUrl;
     } catch (error) {
         throw error;
     }
 };
-
 
 export const getResumeUrl = async (userId: string): Promise<string | null> => {
     try {
@@ -95,7 +86,6 @@ export const getResumeUrl = async (userId: string): Promise<string | null> => {
         if (error || !data) {
             return null;
         }
-
         return data.file_url;
     } catch (error) {
         console.error('Error fetching resume URL:', error);
