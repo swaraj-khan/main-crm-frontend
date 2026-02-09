@@ -605,7 +605,7 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
                                     </div>
                                 </div>
 
-                                {type === 'user' && (
+                                {(type === 'user' || type === 'application') && (
                                     <>
                                         <hr className="my-4" />
                                         <h3 className="font-bold mb-2">Profile Details</h3>

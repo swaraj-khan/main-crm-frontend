@@ -174,20 +174,17 @@ const ApplicationLevelFlow = () => {
       const response = await axios.get('/api/crm/application-level', { params });
       const { data: responseData, total } = response.data;
       
-      // 1. Map API data first
       const mappedData = responseData.map(u => {
-        // Helper to extract ID string from potential EJSON object (e.g. { "$oid": "..." })
         const getOid = (val) => (val && typeof val === 'object' && val.$oid) ? val.$oid : val;
         const cleanUserId = getOid(u.userId) || getOid(u.user?._id) || (typeof u.user === 'string' ? u.user : "") || getOid(u._id) || "";
 
         return {
           ...u,
-          _id: getOid(u._id), // Ensure the application ID is also a clean string
+          _id: getOid(u._id), 
           assignee: u.crmData?.assignee || "",
           tempDisposition: u.crmData?.callDisposition || "",
           tempNotes: u.crmData?.notes || "",
           tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : "",
-          // Map user profile fields if they exist in nested user object
           userId: cleanUserId,
           passportNumber: u.user?.passportNumber || u.passportNumber || "",
           dob: u.user?.dob || u.dob || null,
@@ -203,7 +200,6 @@ const ApplicationLevelFlow = () => {
         };
       });
 
-      // 2. Fetch Supabase overrides
       const userIds = [...new Set(mappedData.map(u => u.userId).filter(Boolean))];
       
       let sbProfiles = [];
@@ -221,7 +217,6 @@ const ApplicationLevelFlow = () => {
         sbAssignments = sbAssignmentsResult.data || [];
       }
 
-      // 3. Merge Supabase data
       const initializedData = mappedData.map(u => {
         const sbProfile = sbProfiles.find(p => p.user_id === u.userId);
         const sbCrm = sbCrmData.find(c => c.user_id === u.userId);
@@ -229,7 +224,6 @@ const ApplicationLevelFlow = () => {
 
         return {
           ...u,
-          // Profile overrides
           skills: sbProfile?.skills || u.skills,
           language: sbProfile?.language || u.language,
           education: sbProfile?.education || u.education,
@@ -238,7 +232,6 @@ const ApplicationLevelFlow = () => {
           gender: sbProfile?.gender || u.gender,
           location: sbProfile?.location || u.location,
           
-          // CRM overrides
           fullName: sbCrm?.full_name || u.fullName,
           targetCountry: sbCrm?.target_country || u.targetCountry,
           targetJobRole: sbCrm?.target_job_role || u.targetJobRole,
@@ -252,7 +245,6 @@ const ApplicationLevelFlow = () => {
 
       let filteredData = initializedData;
 
-      // Client-side date filtering
       if (filterStartDate) {
         const start = new Date(filterStartDate);
         filteredData = filteredData.filter(u => {
@@ -289,47 +281,63 @@ const ApplicationLevelFlow = () => {
     if (!currentUser?.email) return;
     const assignee = currentUser.email;
 
-    // Update local state immediately for better UX
     setUsers(prev => prev.map(u => u._id === application._id ? { ...u, assignee } : u));
 
     try {
-      // Update CRM API
       await axios.post('/api/crm/crm-update', {
         userId: application.userId,
         applicationId: application._id,
         assignee: assignee
       });
-      // Sync with Supabase for Dashboard
       await supabase.from('user_assignments').upsert({ user_id: application.userId, assigned_to: assignee });
 
     } catch (error) {
       console.error("Error assigning user", error);
       alert('Failed to assign. Please try again.');
-      // Revert state on error
       fetchData();
     }
   };
 
   const handleSaveFromModal = async (modifiedApplication) => {
-    // Optimistic UI Update: update local state immediately for better UX
     setUsers(prev => prev.map(u => {
       if (u._id === modifiedApplication._id) {
         return {
           ...u,
-          // Update fields from the modal
           tempDisposition: modifiedApplication.tempDisposition,
           tempNotes: modifiedApplication.tempNotes,
           tempNextCallDate: modifiedApplication.tempNextCallDate,
-          // Also update the main display fields if they were changed
           fullName: modifiedApplication.fullName,
           targetCountry: modifiedApplication.targetCountry.name || u.targetCountry,
           targetJobRole: modifiedApplication.targetJobRole.name || u.targetJobRole,
+          skills: modifiedApplication.skills,
+          language: modifiedApplication.language,
+          education: modifiedApplication.education,
+          experience: modifiedApplication.experience,
+          dob: modifiedApplication.dob,
+          gender: modifiedApplication.gender,
+          location: modifiedApplication.location,
         };
       }
       return u;
     }));
 
     try {
+      // 1. Save Profile Data to user_profiles
+      const sbProfilePayload = {
+        user_id: modifiedApplication.userId,
+        skills: modifiedApplication.skills,
+        language: modifiedApplication.language,
+        education: modifiedApplication.education,
+        experience: modifiedApplication.experience,
+        dob: modifiedApplication.dob || null,
+        gender: modifiedApplication.gender,
+        location: modifiedApplication.location,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: profileError } = await supabase.from('user_profiles').upsert(sbProfilePayload);
+      if (profileError) throw profileError;
+
       await axios.post('/api/crm/crm-update', {
         userId: modifiedApplication.userId,
         applicationId: modifiedApplication._id,
@@ -337,8 +345,8 @@ const ApplicationLevelFlow = () => {
         notes: modifiedApplication.tempNotes,
         nextCallDate: modifiedApplication.tempNextCallDate || null,
         fullName: modifiedApplication.fullName,
-        targetCountry: modifiedApplication.targetCountry,
-        targetJobRole: modifiedApplication.targetJobRole,
+        targetCountry: typeof modifiedApplication.targetCountry === 'object' ? modifiedApplication.targetCountry.name : modifiedApplication.targetCountry,
+        targetJobRole: typeof modifiedApplication.targetJobRole === 'object' ? modifiedApplication.targetJobRole.name : modifiedApplication.targetJobRole,
       });
       alert('Saved successfully');
       
@@ -349,13 +357,11 @@ const ApplicationLevelFlow = () => {
         (modifiedApplication.targetJobRole.name && modifiedApplication.targetJobRole.name !== originalRecord?.targetJobRole);
 
       if (needsRefetch) {
-        // A small delay can help ensure the database has processed the update before we query it again.
         setTimeout(() => fetchData(), 500);
       }
     } catch (error) {
       console.error("Error saving CRM data", error);
       alert('Error saving data');
-      // On error, refetch to revert the optimistic UI update
       fetchData();
     }
   };
@@ -390,7 +396,6 @@ const ApplicationLevelFlow = () => {
         endDate: filterEndDate,
       };
 
-      // Fetch first page to get total count
       const response = await axios.get('/api/crm/application-level', { params });
       const { data: firstPageData, total } = response.data;
       
@@ -428,7 +433,6 @@ const ApplicationLevelFlow = () => {
 
       let filteredData = allData;
 
-      // Client-side date filtering for CSV
       if (filterStartDate) {
         const start = new Date(filterStartDate);
         filteredData = filteredData.filter(u => {
