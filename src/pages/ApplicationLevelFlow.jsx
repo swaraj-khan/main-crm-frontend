@@ -3,6 +3,12 @@ import axios from 'axios';
 import ModifyModal from './ModifyModal';
 import { supabase } from './supabaseClient';
 
+const formatDate = (d) => {
+  if (!d) return '';
+  const val = d?.$date || d;
+  return new Date(val).toLocaleDateString();
+};
+
 const DISPOSITION_OPTIONS = [
   "CALL_ATTEMPT_NO_ANSWER", "CALL_ATTEMPT_NOT_REACHABLE", "CALL_ATTEMPT_WRONG_NUMBER",
   "CALL_ATTEMPT_BUSY_DECLINED", "VOICEMAIL_SENT", "FOLLOW_UP_SCHEDULED",
@@ -73,7 +79,7 @@ const UserDetailsPopup = ({ userId, baseData }) => {
           <>
             <div>Full Name: {user.fullName || '-'}</div>
             <div>Passport: {user.passportNumber || '-'}</div>
-            <div>DOB: {user.dob ? new Date(user.dob.$date || user.dob).toLocaleDateString() : '-'}</div>
+            <div>DOB: {formatDate(user.dob) || '-'}</div>
             <div>Gender: {user.gender || '-'}</div>
             <div>Experience Type: {user.experienceType || '-'}</div>
             <div>Location: {user.location ? [user.location.city, user.location.state, user.location.country].filter(Boolean).join(', ') : '-'}</div>
@@ -399,16 +405,8 @@ const ApplicationLevelFlow = () => {
       const response = await axios.get('/api/crm/application-level', { params });
       const { data: firstPageData, total } = response.data;
       
-      const mapRecord = (u) => ({
-            ...u,
-            assignee: u.crmData?.assignee || "",
-            tempDisposition: u.crmData?.callDisposition || "",
-            tempNotes: u.crmData?.notes || "",
-            tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
-      });
-
       if (firstPageData && firstPageData.length > 0) {
-        allData.push(...firstPageData.map(mapRecord));
+        allData.push(...firstPageData);
       }
 
       const totalPages = Math.ceil(total / limit);
@@ -425,13 +423,76 @@ const ApplicationLevelFlow = () => {
           batchResponses.forEach(res => {
             const { data: pageData } = res.data;
             if (pageData && pageData.length > 0) {
-              allData.push(...pageData.map(mapRecord));
+              allData.push(...pageData);
             }
           });
         }
       }
 
-      let filteredData = allData;
+      const getOid = (val) => (val && typeof val === 'object' && val.$oid) ? val.$oid : val;
+      const mappedData = allData.map(u => {
+        const cleanUserId = getOid(u.userId) || getOid(u.user?._id) || (typeof u.user === 'string' ? u.user : "") || getOid(u._id) || "";
+        return {
+          ...u,
+          _id: getOid(u._id), 
+          assignee: u.crmData?.assignee || "",
+          tempDisposition: u.crmData?.callDisposition || "",
+          tempNotes: u.crmData?.notes || "",
+          tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : "",
+          userId: cleanUserId,
+          passportNumber: u.user?.passportNumber || u.passportNumber || "",
+          dob: u.user?.dob || u.dob || null,
+          gender: u.user?.gender || u.gender || "",
+          experienceType: u.user?.experienceType || u.experienceType || "",
+          location: u.user?.location || u.location || null,
+          secondaryCountries: u.user?.secondaryCountries || u.secondaryCountries || [],
+          secondaryJobRoles: u.user?.secondaryJobRoles || u.secondaryJobRoles || [],
+          skills: u.user?.skills || u.skills || [],
+          language: u.user?.language || u.language || {},
+          education: u.user?.education || u.education || [],
+          experience: u.user?.experience || u.experience || [],
+        };
+      });
+
+      const userIds = [...new Set(mappedData.map(u => u.userId).filter(Boolean))];
+      
+      let sbProfiles = [];
+      let sbCrmData = [];
+      let sbAssignments = [];
+
+      if (userIds.length > 0) {
+        const batchSize = 200;
+        const profilePromises = [];
+        const crmPromises = [];
+        const assignmentPromises = [];
+
+        for (let i = 0; i < userIds.length; i += batchSize) {
+            const batch = userIds.slice(i, i + batchSize);
+            profilePromises.push(supabase.from('user_profiles').select('*').in('user_id', batch));
+            crmPromises.push(supabase.from('userflow_crm').select('*').in('user_id', batch));
+            assignmentPromises.push(supabase.from('user_assignments').select('*').in('user_id', batch));
+        }
+        
+        const [sbProfilesResults, sbCrmResults, sbAssignmentsResults] = await Promise.all([
+            Promise.all(profilePromises),
+            Promise.all(crmPromises),
+            Promise.all(assignmentPromises)
+        ]);
+
+        sbProfiles = sbProfilesResults.flatMap(r => r.data || []);
+        sbCrmData = sbCrmResults.flatMap(r => r.data || []);
+        sbAssignments = sbAssignmentsResults.flatMap(r => r.data || []);
+      }
+
+      const initializedData = mappedData.map(u => {
+        const sbProfile = sbProfiles.find(p => p.user_id === u.userId);
+        const sbCrm = sbCrmData.find(c => c.user_id === u.userId);
+        const sbAssignment = sbAssignments.find(a => a.user_id === u.userId);
+
+        return { ...u, skills: sbProfile?.skills || u.skills, language: sbProfile?.language || u.language, education: sbProfile?.education || u.education, experience: sbProfile?.experience || u.experience, dob: sbProfile?.dob || u.dob, gender: sbProfile?.gender || u.gender, location: sbProfile?.location || u.location, fullName: sbCrm?.full_name || u.fullName, targetCountry: sbCrm?.target_country || u.targetCountry, targetJobRole: sbCrm?.target_job_role || u.targetJobRole, assignee: sbAssignment?.assigned_to || u.assignee, tempDisposition: sbCrm?.call_disposition || u.tempDisposition, tempNotes: sbCrm?.notes || u.tempNotes, tempNextCallDate: sbCrm?.next_call_date ? sbCrm.next_call_date.split('T')[0] : u.tempNextCallDate, };
+      });
+
+      let filteredData = initializedData;
 
       if (filterStartDate) {
         const start = new Date(filterStartDate);
@@ -462,15 +523,24 @@ const ApplicationLevelFlow = () => {
         dataToDownload = filteredData.filter(u => !u.tempDisposition);
       }
 
-      const headers = ['Application ID', 'User ID', 'Created At', 'Full Name', 'Phone Number', 'Target Country', 'Target Job Role', 'Job Title', 'Company', 'Salary', 'Assignee'];
+      const headers = ['Application ID', 'User ID', 'Created At', 'Full Name', 'Phone Number', 'Target Country', 'Target Job Role', 'Job Title', 'Company', 'Salary', 'Assignee', 'Call Disposition', 'Notes', 'Next Call Date', 'Passport', 'DOB', 'Gender', 'Experience Type', 'Location', 'Secondary Countries', 'Secondary Job Roles', 'Skills', 'Languages', 'Education', 'Experience'];
       const csvRows = [headers.join(',')];
 
       dataToDownload.forEach(user => {
         const salary = user.jobSnapshot?.salary ? `${user.jobSnapshot.salary.min || 0} - ${user.jobSnapshot.salary.max || 0} ${user.jobSnapshot.salary.currency || ''}` : '';
+        const skills = Array.isArray(user.skills) ? user.skills.join('; ') : (user.skills || '');
+        const languages = user.language ? `${user.language.motherTongue || ''} | ${(user.language.other || []).join(', ')}` : '';
+        const education = user.education ? (Array.isArray(user.education) ? user.education.map(e => `${e.degree} at ${e.institutionName}`).join('; ') : (typeof user.education === 'object' ? JSON.stringify(user.education) : user.education)) : '';
+        const experience = user.experience ? (Array.isArray(user.experience) ? user.experience.map(e => `${e.position} at ${e.companyName}`).join('; ') : (typeof user.experience === 'object' ? JSON.stringify(user.experience) : user.experience)) : '';
+        const location = user.location ? `${user.location.city || ''}, ${user.location.state || ''}, ${user.location.country || ''}` : '';
+        const dob = formatDate(user.dob);
+        const secondaryCountries = (user.secondaryCountries || []).map(c => c.name).join(', ');
+        const secondaryJobRoles = (user.secondaryJobRoles || []).map(r => r.name).join(', ');
+
         const row = [
           user._id,
           user.userId,
-          user.createdAt ? `"${new Date(user.createdAt).toLocaleString()}"` : '',
+          user.createdAt ? `"${new Date(user.createdAt.$date || user.createdAt).toLocaleString()}"` : '',
           `"${(user.fullName || '').replace(/"/g, '""')}"`,
           `"${(user.phoneNumber || '').replace(/"/g, '""')}"`,
           `"${(user.targetCountry || '').replace(/"/g, '""')}"`,
@@ -478,7 +548,21 @@ const ApplicationLevelFlow = () => {
           `"${(user.jobTitle || '').replace(/"/g, '""')}"`,
           `"${(user.companyName || '').replace(/"/g, '""')}"`,
           `"${salary.replace(/"/g, '""')}"`,
-          `"${(user.assignee || '').replace(/"/g, '""')}"`
+          `"${(user.assignee || '').replace(/"/g, '""')}"`,
+          `"${(user.tempDisposition || '').replace(/"/g, '""')}"`,
+          `"${(user.tempNotes || '').replace(/"/g, '""')}"`,
+          user.tempNextCallDate || '',
+          `"${(user.passportNumber || '').replace(/"/g, '""')}"`,
+          dob,
+          user.gender || '',
+          user.experienceType || '',
+          `"${location.replace(/"/g, '""')}"`,
+          `"${secondaryCountries.replace(/"/g, '""')}"`,
+          `"${secondaryJobRoles.replace(/"/g, '""')}"`,
+          `"${skills.replace(/"/g, '""')}"`,
+          `"${languages.replace(/"/g, '""')}"`,
+          `"${education.replace(/"/g, '""')}"`,
+          `"${experience.replace(/"/g, '""')}"`,
         ];
         csvRows.push(row.join(','));
       });
