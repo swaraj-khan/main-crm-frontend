@@ -710,6 +710,8 @@ const ApplicationLevelFlow = () => {
               <th className="p-2 border w-16">S.No</th>
               <th className="p-2 border">Created At</th>
               <th className="p-2 border">User Info</th>
+              <th className="p-2 border">Education</th>
+              <th className="p-2 border">Experience</th>
               <th className="p-2 border">Target Country</th>
               <th className="p-2 border">Target Job Role</th>
               <th className="p-2 border">Job Info</th>
@@ -730,6 +732,32 @@ const ApplicationLevelFlow = () => {
                   <div className="font-bold">{user.fullName}</div>
                   <div className="text-sm text-gray-600">{user.phoneNumber}</div>
                   <div className="text-xs text-gray-400 font-mono">UID: {user.userId}</div>
+                </td>
+                <td className="p-2 border text-sm">
+                  {user.education && Array.isArray(user.education) && user.education.length > 0 ? (
+                    user.education.map((e, i) => (
+                      <div key={i} className="mb-2 pb-1 border-b last:border-0">
+                        <div className="font-semibold">{e.institutionName}</div>
+                        <div>{e.degree} {e.fieldOfStudy ? `(${e.fieldOfStudy})` : ''}</div>
+                        <div className="text-xs text-gray-500">{formatDate(e.startDate)} - {formatDate(e.endDate)}</div>
+                      </div>
+                    ))
+                  ) : (
+                    user.education && !Array.isArray(user.education) ? user.education : <span className="text-gray-400 text-xs italic">No Education</span>
+                  )}
+                </td>
+                <td className="p-2 border text-sm">
+                  {user.experience && Array.isArray(user.experience) && user.experience.length > 0 ? (
+                    user.experience.map((e, i) => (
+                      <div key={i} className="mb-2 pb-1 border-b last:border-0">
+                        <div className="font-semibold">{e.companyName}</div>
+                        <div>{e.position}</div>
+                        <div className="text-xs text-gray-500">{formatDate(e.startDate)} - {formatDate(e.endDate)}</div>
+                      </div>
+                    ))
+                  ) : (
+                    user.experience && !Array.isArray(user.experience) ? user.experience : <span className="text-gray-400 text-xs italic">No Experience</span>
+                  )}
                 </td>
                 <td className="p-2 border">{user.targetCountry || '-'}</td>
                 <td className="p-2 border">{user.targetJobRole || '-'}</td>
